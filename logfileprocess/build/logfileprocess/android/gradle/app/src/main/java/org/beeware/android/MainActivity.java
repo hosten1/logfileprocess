@@ -23,8 +23,23 @@ import org.json.JSONException;
 
 import com.lym.logfileprocess.R;
 
+import android.widget.Toast;
+import android.os.Environment;
+import android.Manifest;
+import android.provider.Settings;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
+
 
 public class MainActivity extends AppCompatActivity {
+
+    private static final int REQUEST_CODE_MANAGE_STORAGE = 1001;
+    private static final int REQUEST_CODE_STORAGE_PERMISSIONS = 1002;
 
     // To profile app launch, use `adb -s MainActivity`; look for "onCreate() start" and "onResume() completed".
     private String TAG = "MainActivity";
@@ -52,6 +67,28 @@ public class MainActivity extends AppCompatActivity {
         // Change away from the splash screen theme to the app theme.
         setTheme(R.style.AppTheme);
         super.onCreate(savedInstanceState);
+        // 检查是否已经获得MANAGE_EXTERNAL_STORAGE权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                // 如果没有权限，跳转到权限设置页面
+                requestManageAllFilesAccessPermission();
+            } else {
+                // 已经有权限
+                Toast.makeText(this, "已授予所有文件访问权限", Toast.LENGTH_SHORT).show();
+                // 在这里继续你需要执行的操作
+            }
+        } else {
+            // Android 11 以下版本
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                // 请求读写权限
+                requestStoragePermissions();
+            } else {
+                // 已经有权限
+                Toast.makeText(this, "已授予读写存储权限", Toast.LENGTH_SHORT).show();
+                // 继续你需要执行的操作
+            }
+        }
         LinearLayout layout = new LinearLayout(this);
         this.setContentView(layout);
         singletonThis = this;
@@ -144,6 +181,18 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "onActivityResult() start");
         super.onActivityResult(requestCode, resultCode, data);
         userCode("onActivityResult", requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_MANAGE_STORAGE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (Environment.isExternalStorageManager()) {
+                    // 用户已授予所有文件访问权限
+                    Toast.makeText(this, "已授予所有文件访问权限", Toast.LENGTH_SHORT).show();
+                    // 继续你需要执行的操作
+                } else {
+                    // 权限被拒绝
+                    Toast.makeText(this, "所有文件访问权限被拒绝", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
         Log.d(TAG, "onActivityResult() complete");
     }
 
@@ -176,6 +225,16 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         userCode("onRequestPermissionsResult", requestCode, permissions, grantResults);
         Log.d(TAG, "onRequestPermissionsResult() complete");
+        if (requestCode == REQUEST_CODE_STORAGE_PERMISSIONS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // 权限授予成功
+                Toast.makeText(this, "读写存储权限已授予", Toast.LENGTH_SHORT).show();
+                // 继续你需要执行的操作
+            } else {
+                // 权限被拒绝
+                Toast.makeText(this, "读写存储权限被拒绝", Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     private PyObject userCode(String methodName, Object... args) {
@@ -196,5 +255,18 @@ public class MainActivity extends AppCompatActivity {
             }
             throw e;
         }
+    }
+    @RequiresApi(api = Build.VERSION_CODES.R)
+    private void requestManageAllFilesAccessPermission() {
+        Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+        intent.setData(Uri.parse("package:" + getPackageName()));
+        startActivity(intent);
+    }
+
+
+    private void requestStoragePermissions() {
+        ActivityCompat.requestPermissions(this,
+                new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                REQUEST_CODE_STORAGE_PERMISSIONS);
     }
 }

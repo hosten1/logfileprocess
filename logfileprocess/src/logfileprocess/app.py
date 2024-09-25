@@ -9,11 +9,17 @@ import sys
 import re
 import os
 import codecs
+
+import platform
+
 from logfileprocess.tools.engine_log_analyze_data_png   import extract_and_plot_aslevels
 from logfileprocess.tools.engine_log_analyze_data  import file_log_content_splitter
 from logfileprocess.tools.engine_log_analyze_data_prcess   import extract_json_from_logs
 from logfileprocess.tools.webrtc_log   import split_log_by_webrtc_init
 from logfileprocess.tools.webrtc_log   import extract_objc_lines_from_logs
+
+from os import environ
+plt = platform.system()
 
 
 class LogFileProcess(toga.App):
@@ -24,10 +30,28 @@ class LogFileProcess(toga.App):
         We then create a main window (with a name matching the app), and
         show the main window.
         """
-        # log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/webrtc-native2024-09-24.log"
-        # out_log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/logs"
-        log_file_path = u"/storage/emulated/0/pythonz/webrtc-native2024-09-24.log"
-        out_log_file_path = u"/storage/emulated/0/pythonz/logs"
+        log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/webrtc-native2024-09-24.log"
+        out_log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/logs"
+        if plt == "Windows":
+            print("Your system is Windows")
+        # do x y z
+        elif plt == "Linux":
+            print("Your system is Linux")
+            if 'ANDROID_BOOTLOGO' in environ:
+                print("====================>Running on Android")
+                log_file_path = u"/storage/emulated/0/pythonz/webrtc-native2024-09-24.log"
+                out_log_file_path = u"/storage/emulated/0/pythonz/logs"
+            else:
+                print("Not Android OS")
+            # do x y z
+        elif plt == "Darwin":
+            print("Your system is MacOS")
+            # do x y z
+        else:
+            print("Unidentified system")
+
+           
+           
         # 步骤1：拆分日志文件
         split_log_by_webrtc_init(log_file_path,out_log_file_path)
 

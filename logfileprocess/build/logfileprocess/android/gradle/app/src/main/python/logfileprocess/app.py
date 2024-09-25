@@ -26,7 +26,7 @@ class LogFileProcess(toga.App):
         """
         # log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/webrtc-native2024-09-24.log"
         # out_log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/logs"
-        log_file_path = u"/storage/emulated/0/pythonz/webrtc-native2024-09-24.0g"
+        log_file_path = u"/storage/emulated/0/pythonz/webrtc-native2024-09-24.log"
         out_log_file_path = u"/storage/emulated/0/pythonz/logs"
         # 步骤1：拆分日志文件
         split_log_by_webrtc_init(log_file_path,out_log_file_path)

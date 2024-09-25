@@ -1,3 +1,3 @@
-# Generated 2024-09-25 17:33:44.765427
+# Generated 2024-09-25 17:47:51.934278
 matplotlib
 toga-android~=0.4.5

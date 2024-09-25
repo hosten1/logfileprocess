@@ -11,12 +11,12 @@ def split_log_by_webrtc_init(log_file_path, output_dir='logs'):
 
     # 打开日志文件
     with open(log_file_path, 'r') as log_file:
-        # print("Reading log file: {}".format(log_file_path))
+        print("Reading log file: {}".format(log_file_path))
         current_file = None
         current_filename = None
 
         for line in log_file:
-            print("Processing line: {}".format(line))
+            # print("Processing line: {}".format(line))
             # 查找 "WebRtcVoiceEngine::Init"
             if "WebRtcVoiceEngine::Init" in line:
                 # 提取时间戳，格式假设为 [YYYY-MM-DD HH:MM:SS]

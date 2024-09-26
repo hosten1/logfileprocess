@@ -21,7 +21,8 @@ from logfileprocess.tools.webrtc_log   import extract_objc_lines_from_logs
 from os import environ
 plt = platform.system()
 
-
+def hello_python(str):
+    print(u"Hello, Python({})!！！！！！".format(str))
 class LogFileProcess(toga.App):
     def startup(self):
         """Construct and show the Toga application.

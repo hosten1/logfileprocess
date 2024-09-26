@@ -22,6 +22,7 @@ test_sources = [
 
 requires = [
   "matplotlib",
+  "numpy"
 ]
 test_requires = [
     "pytest",
@@ -174,6 +175,8 @@ build_gradle_dependencies = [
     # "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0",
     # Needed for MapView
     # "org.osmdroid:osmdroid-android:6.1.0",
+    # https://mvnrepository.com/artifact/black.ninia/jep
+    # "black.ninia:jep:4.2.0"
 ]
 
 # Web deployments

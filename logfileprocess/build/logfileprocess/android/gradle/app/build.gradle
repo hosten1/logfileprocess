@@ -55,10 +55,15 @@ android {
         }
     }
 }
-
+repositories {
+    jcenter()
+}
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation "com.google.android.material:material:1.11.0"
+    implementation 'ru.bartwell:exfilepicker:2.1'
+    // https://mvnrepository.com/artifact/black.ninia/jep
+    // implementation 'black.ninia:jep:4.2.0'
 }
 
 // ========== START USER PROVIDED CONTENT ==========

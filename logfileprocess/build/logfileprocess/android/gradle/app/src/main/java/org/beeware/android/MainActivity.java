@@ -3,9 +3,11 @@ package org.beeware.android;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,6 +18,7 @@ import com.chaquo.python.PyObject;
 import com.chaquo.python.Python;
 import com.chaquo.python.android.AndroidPlatform;
 
+import java.io.File;
 import java.util.List;
 
 import org.json.JSONArray;
@@ -35,8 +38,11 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 
+import ru.bartwell.exfilepicker.ExFilePicker;
+import ru.bartwell.exfilepicker.data.ExFilePickerResult;
 
-public class MainActivity extends AppCompatActivity {
+
+public class MainActivity extends AppCompatActivity  {
 
     private static final int REQUEST_CODE_MANAGE_STORAGE = 1001;
     private static final int REQUEST_CODE_STORAGE_PERMISSIONS = 1002;
@@ -44,7 +50,11 @@ public class MainActivity extends AppCompatActivity {
     // To profile app launch, use `adb -s MainActivity`; look for "onCreate() start" and "onResume() completed".
     private String TAG = "MainActivity";
     private static PyObject pythonApp;
+    private Python py;
 
+    private AppCompatActivity mActivity;
+    private final int EX_FILE_PICKER_RESULT = 0xfa01;
+    private String startDirectory = null;// 记忆上一次访问的文件目录路径
     /**
      * This method is called by `app.__main__` over JNI in Python when the BeeWare
      * app launches.
@@ -66,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "onCreate() start");
         // Change away from the splash screen theme to the app theme.
         setTheme(R.style.AppTheme);
+        mActivity = this;
         super.onCreate(savedInstanceState);
         // 检查是否已经获得MANAGE_EXTERNAL_STORAGE权限
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -89,11 +100,10 @@ public class MainActivity extends AppCompatActivity {
                 // 继续你需要执行的操作
             }
         }
-        LinearLayout layout = new LinearLayout(this);
-        this.setContentView(layout);
+        setContentView(R.layout.activity_main);
+
         singletonThis = this;
 
-        Python py;
         if (Python.isStarted()) {
             Log.d(TAG, "Python already started");
             py = Python.getInstance();
@@ -124,6 +134,9 @@ public class MainActivity extends AppCompatActivity {
             getString(R.string.main_module),
             new Kwarg("run_name", "__main__"),
             new Kwarg("alter_sys", true)
+        );
+        py.getModule("logfileprocess.app").callAttr(
+            "hello_python","sdcard/0/logfileprocess"
         );
 
         userCode("onCreate");
@@ -194,6 +207,26 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         Log.d(TAG, "onActivityResult() complete");
+        if (requestCode == EX_FILE_PICKER_RESULT) {
+            ExFilePickerResult result = ExFilePickerResult.getFromIntent(data);
+            if (result != null && result.getCount() > 0) {
+                String path = result.getPath();
+
+                List<String> names = result.getNames();
+                for (int i = 0; i < names.size(); i++) {
+                    File f = new File(path, names.get(i));
+                    try {
+                        Uri uri = Uri.fromFile(f); //这里获取了真实可用的文件资源
+                        Toast.makeText(mActivity, "选择文件:" + uri.getPath(), Toast.LENGTH_SHORT)
+                                .show();
+
+                        startDirectory = path;
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
     }
 
     public void onConfigurationChanged(Configuration newConfig) {
@@ -268,5 +301,20 @@ public class MainActivity extends AppCompatActivity {
         ActivityCompat.requestPermissions(this,
                 new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE},
                 REQUEST_CODE_STORAGE_PERMISSIONS);
+    }
+
+    public void start_choose_file(View view) {
+        ExFilePicker exFilePicker = new ExFilePicker();
+        exFilePicker.setCanChooseOnlyOneItem(true);// 单选
+        exFilePicker.setQuitButtonEnabled(true);
+
+        if (TextUtils.isEmpty(startDirectory)) {
+            exFilePicker.setStartDirectory(Environment.getExternalStorageDirectory().getPath());
+        } else {
+            exFilePicker.setStartDirectory(startDirectory);
+        }
+
+        exFilePicker.setChoiceType(ExFilePicker.ChoiceType.FILES);
+        exFilePicker.start(mActivity, EX_FILE_PICKER_RESULT);
     }
 }

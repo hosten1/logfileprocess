@@ -3,6 +3,8 @@ package org.beeware.android;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
@@ -26,6 +28,7 @@ import org.json.JSONException;
 
 import com.lym.logfileprocess.R;
 
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.os.Environment;
@@ -58,6 +61,9 @@ public class MainActivity extends AppCompatActivity  {
     private String startDirectory = null;// 记忆上一次访问的文件目录路径
 
     private TextView file_path_tv;
+
+    private TextView tvMessages;
+    private ScrollView scrollView;
     /**
      * This method is called by `app.__main__` over JNI in Python when the BeeWare
      * app launches.
@@ -107,6 +113,9 @@ public class MainActivity extends AppCompatActivity  {
 
         singletonThis = this;
         file_path_tv = findViewById(R.id.file_path_tv);
+        // 获取 TextView 和 ScrollView 的引用
+        tvMessages = findViewById(R.id.tv_messages);
+        scrollView = findViewById(R.id.scrollView);
         if (Python.isStarted()) {
             Log.d(TAG, "Python already started");
             py = Python.getInstance();
@@ -325,44 +334,43 @@ public class MainActivity extends AppCompatActivity  {
         exFilePicker.setChoiceType(ExFilePicker.ChoiceType.FILES);
         exFilePicker.start(mActivity, EX_FILE_PICKER_RESULT);
     }
-    public static void onPthonCallback(String msg){
-        Log.d("MainActivity 这是来及Java--》",msg);
+    public void onPthonCallback(String msg){
+        Log.d("MainActivity", "收到的消息来自 Python: " + msg);
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                Log.d("MainActivity", "Message from Python: " + msg);
+//                String cacheMsg = tvMessages.getText().toString() + "\n" + msg;
+//                tvMessages.setText(cacheMsg);
+//                scrollView.fullScroll(View.FOCUS_DOWN);  // 确保消息显示在滚动视图的底部
+            }
+        });
+
+//        // 确保 UI 更新在主线程中进行
+//        runOnUiThread(new Runnable() {
+//            @Override
+//            public void run() {
+//                // 将新的消息追加到 TextView 中
+//                tvMessages.append(msg + "\n");
+//
+//                // 自动滚动到最新消息
+//                scrollView.post(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        scrollView.fullScroll(View.FOCUS_DOWN);
+//                    }
+//                });
+//            }
+//        });
     }
 
     public void btn_start_analyze_click(View view) {
         String filePath  = (String) file_path_tv.getText();
         Log.d(TAG, "btn_start_analyze_click: "+filePath);
-        // 在子线程中执行Python调用
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    checkAndCreateLogsDirectory(filePath);
-                    py.getModule("logfileprocess.app").callAttr(
-                            "java_start_analyze_log_file",filePath
-                    );
-//                    runOnUiThread(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            // 更新UI操作，例如显示结果
-////                            Toast.makeText(getApplicationContext(), "Analysis completed: " + resultStr, Toast.LENGTH_LONG).show();
-//                        }
-//                    });
-
-                } catch (PyException e) {
-                    e.printStackTrace();
-                    Log.e("PythonError", "Error occurred while calling Python function: " + e.getMessage());
-
-                    // 如果发生异常，使用runOnUiThread更新UI
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(), "Error occurred: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                        }
-                    });
-                }
-            }
-        }).start(); // 启动子线程
+        checkAndCreateLogsDirectory(filePath);
+        py.getModule("logfileprocess.app").callAttr(
+                "java_start_analyze_log_file",filePath
+        );
 
     }
     public static void checkAndCreateLogsDirectory(String filePath) {

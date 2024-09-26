@@ -257,8 +257,6 @@ class data_to_plot:
         timestamps = []
 
         log_file_name = os.path.basename(log_file_path).replace('.log', '')
-        # 保存图片到 logs 目录
-        output_file_path = os.path.join(out_path, '{}_recv_other_data_{}.png'.format(log_file_name, peer_id))
         try:
             with open(log_file_path, 'r') as log_file:
                 line_number = 0
@@ -328,7 +326,8 @@ class data_to_plot:
                     axs[i].grid(True)
 
                 plt.tight_layout()
-
+                        # 保存图片到 logs 目录
+                output_file_path = os.path.join(out_path, '{}_recv_other_data_{}.png'.format(log_file_name, peer_id))
                 plt.savefig(output_file_path)
                 plt.close()
                 print("图表已生成并保存到: {}".format(output_file_path))
@@ -351,8 +350,6 @@ class data_to_plot:
         timestamps = []
 
         log_file_name = os.path.basename(log_file_path).replace('.log', '')
-                    # 保存图片到 logs 目录
-        output_file_path = os.path.join(out_path, '{}_send_data.png'.format(log_file_name))
         try:
             with open(log_file_path, 'r') as log_file:
                 line_number = 0
@@ -423,7 +420,8 @@ class data_to_plot:
 
             plt.tight_layout()
 
-
+            # 保存图片到 logs 目录
+            output_file_path = os.path.join(out_path, '{}_send_data.png'.format(log_file_name))
             plt.savefig(output_file_path)
             plt.close()
             print("图表已生成并保存到: {}".format(output_file_path))

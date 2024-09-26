@@ -3,4 +3,5 @@
     <string name="app_name">logfileprocess</string>
     <string name="file_path_url">文件地址</string>
     <string name="start_choose_file">选择文件</string>
+    <string  name="btn_start_analyze">开始分析日志</string>
 </resources>

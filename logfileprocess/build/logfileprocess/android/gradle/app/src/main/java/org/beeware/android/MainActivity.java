@@ -26,6 +26,7 @@ import org.json.JSONException;
 
 import com.lym.logfileprocess.R;
 
+import android.widget.TextView;
 import android.widget.Toast;
 import android.os.Environment;
 import android.Manifest;
@@ -55,6 +56,8 @@ public class MainActivity extends AppCompatActivity  {
     private AppCompatActivity mActivity;
     private final int EX_FILE_PICKER_RESULT = 0xfa01;
     private String startDirectory = null;// 记忆上一次访问的文件目录路径
+
+    private TextView file_path_tv;
     /**
      * This method is called by `app.__main__` over JNI in Python when the BeeWare
      * app launches.
@@ -103,7 +106,7 @@ public class MainActivity extends AppCompatActivity  {
         setContentView(R.layout.activity_main);
 
         singletonThis = this;
-
+        file_path_tv = findViewById(R.id.file_path_tv);
         if (Python.isStarted()) {
             Log.d(TAG, "Python already started");
             py = Python.getInstance();
@@ -135,9 +138,7 @@ public class MainActivity extends AppCompatActivity  {
             new Kwarg("run_name", "__main__"),
             new Kwarg("alter_sys", true)
         );
-        py.getModule("logfileprocess.app").callAttr(
-            "hello_python","sdcard/0/logfileprocess"
-        );
+
 
         userCode("onCreate");
         Log.d(TAG, "onCreate() complete");
@@ -217,6 +218,13 @@ public class MainActivity extends AppCompatActivity  {
                     File f = new File(path, names.get(i));
                     try {
                         Uri uri = Uri.fromFile(f); //这里获取了真实可用的文件资源
+//                        String filePath  = (String) file_path_tv.getText();
+//                        filePath = filePath + uri.getPath();
+                        String filePath  = "\""+uri.getPath()+"\"";
+                        file_path_tv.setText(filePath);
+                        py.getModule("logfileprocess.app").callAttr(
+                                "java_choose_file_path",filePath
+                        );
                         Toast.makeText(mActivity, "选择文件:" + uri.getPath(), Toast.LENGTH_SHORT)
                                 .show();
 
@@ -316,5 +324,69 @@ public class MainActivity extends AppCompatActivity  {
 
         exFilePicker.setChoiceType(ExFilePicker.ChoiceType.FILES);
         exFilePicker.start(mActivity, EX_FILE_PICKER_RESULT);
+    }
+    public static void onPthonCallback(String msg){
+        Log.d("MainActivity 这是来及Java--》",msg);
+    }
+
+    public void btn_start_analyze_click(View view) {
+        String filePath  = (String) file_path_tv.getText();
+        Log.d(TAG, "btn_start_analyze_click: "+filePath);
+        // 在子线程中执行Python调用
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    checkAndCreateLogsDirectory(filePath);
+                    py.getModule("logfileprocess.app").callAttr(
+                            "java_start_analyze_log_file",filePath
+                    );
+//                    runOnUiThread(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            // 更新UI操作，例如显示结果
+////                            Toast.makeText(getApplicationContext(), "Analysis completed: " + resultStr, Toast.LENGTH_LONG).show();
+//                        }
+//                    });
+
+                } catch (PyException e) {
+                    e.printStackTrace();
+                    Log.e("PythonError", "Error occurred while calling Python function: " + e.getMessage());
+
+                    // 如果发生异常，使用runOnUiThread更新UI
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(), "Error occurred: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        }
+                    });
+                }
+            }
+        }).start(); // 启动子线程
+
+    }
+    public static void checkAndCreateLogsDirectory(String filePath) {
+        // 获取文件所在的目录路径
+        File logFile = new File(filePath);
+        File parentDir = logFile.getParentFile();  // 获取父目录
+
+        if (parentDir != null && parentDir.exists()) {
+            // 构建 logs 目录的路径
+            File logsDir = new File(parentDir, "logs");
+
+            // 判断 logs 目录是否存在
+            if (!logsDir.exists()) {
+                boolean isCreated = logsDir.mkdirs();  // 创建 logs 目录
+                if (isCreated) {
+                    Log.d("FileUtils", "Logs directory created at: " + logsDir.getAbsolutePath());
+                } else {
+                    Log.e("FileUtils", "Failed to create logs directory.");
+                }
+            } else {
+                Log.d("FileUtils", "Logs directory already exists at: " + logsDir.getAbsolutePath());
+            }
+        } else {
+            Log.e("FileUtils", "Parent directory does not exist.");
+        }
     }
 }

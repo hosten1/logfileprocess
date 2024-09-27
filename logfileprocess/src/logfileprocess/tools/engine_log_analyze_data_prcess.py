@@ -259,6 +259,7 @@ class details_logs:
                 break
 
         # Step 3: 查找 Verify msg:
+        callback("Searching for Verify msg:")
         for line in file_all_log_lines:
             if "Verify msg:" in line:
                 verify_time_match = re.search(time_pattern, line)
@@ -268,9 +269,15 @@ class details_logs:
                         "end_time": "",
                         "duration": 0,
                     }
+                    callback(
+                        "Verify msg success: {}".format(
+                            results["verify_msg"]["verify_time"]
+                        )
+                    )
                 break
 
         # Step 4: 处理 queryRoom
+        callback("Searching for queryRoom:")
         for idx, line in enumerate(file_all_log_lines):
             if "sending mediasoup request [method:queryRoom]" in line:
                 query_room_start_time_match = re.search(time_pattern, line)
@@ -278,46 +285,59 @@ class details_logs:
                     results["queryRoom"]["start_time"] = (
                         query_room_start_time_match.group(1)
                     )
+                    callback(
+                        "queryRoom start_time: {}".format(
+                            results["queryRoom"]["start_time"]
+                        )
+                    )
 
+                    continue
                     # 查找对应的 callback
-                    for cb_line in file_all_log_lines[idx:]:
-                        if (
-                            "sendMessage(method = queryRoom)" in cb_line
-                            and "callback:respData" in cb_line
-                        ):
-                            query_room_end_time_match = re.search(time_pattern, cb_line)
-                            if query_room_end_time_match:
-                                results["queryRoom"]["end_time"] = (
-                                    query_room_end_time_match.group(1)
-                                )
-                            break
-                    break
+            if (
+                "sendMessage(method = queryRoom)" in line
+                and "callback:respData" in line
+            ):
+                query_room_end_time_match = re.search(time_pattern, line)
+                if query_room_end_time_match:
+                    results["queryRoom"]["end_time"] = query_room_end_time_match.group(
+                        1
+                    )
+                callback(
+                    "Searching for queryRoom callback success end_time={}".format(
+                        results["queryRoom"]["end_time"]
+                    )
+                )
+                break
 
         # Step 5: 处理 join
+        callback("Searching for join:")
         for idx, line in enumerate(file_all_log_lines):
             if "sending mediasoup request [method:join]" in line:
                 join_start_time_match = re.search(time_pattern, line)
                 if join_start_time_match:
                     results["join"]["start_time"] = join_start_time_match.group(1)
+                    callback(
+                        "join start_time: {}".format(results["join"]["start_time"])
+                    )
+                    continue
 
-                    # 查找对应的 callback 并提取 JSON 数据
-                    for cb_idx, cb_line in enumerate(file_all_log_lines[idx:]):
-                        if "callback:respData" in cb_line and "method:join" in cb_line:
-                            join_end_time_match = re.search(time_pattern, cb_line)
-                            if join_end_time_match:
-                                results["join"]["end_time"] = join_end_time_match.group(
-                                    1
-                                )
-                                json_str = self.parse_logs_detail_extract_json(
-                                    file_all_log_lines, cb_idx + idx
-                                )
-                                json_str = (
-                                    json_str.replace("=", ":")
-                                    .replace("(", "[")
-                                    .replace(")", "]")
-                                )
-                                results["join"]["resp_data"] = json.loads(json_str)
-                            break
+            # 查找对应的 callback 并提取 JSON 数据
+            if "callback:respData" in line and "join" in line:
+                join_end_time_match = re.search(time_pattern, line)
+                if join_end_time_match:
+                    results["join"]["end_time"] = join_end_time_match.group(1)
+                    # json_str = self.parse_logs_detail_extract_json(
+                    #     file_all_log_lines, idx
+                    # )
+                    # json_str = (
+                    #     json_str.replace("=", ":").replace("(", "[").replace(")", "]")
+                    # )
+                    # results["join"]["resp_data"] = json.loads(json_str)
+                    callback(
+                        "Searching for join callback success end_time={}".format(
+                            results["join"]["end_time"]
+                        )
+                    )
                     break
 
         # Step 6: 处理 createTransport

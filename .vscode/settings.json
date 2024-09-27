@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./logfileprocess/src/logfileprocess/tools"
+    ]
+}

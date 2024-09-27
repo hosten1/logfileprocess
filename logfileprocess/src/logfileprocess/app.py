@@ -22,18 +22,49 @@ import threading
 from os import environ
 plt = platform.system()
 
-# 调用 Java 的 Android API 示例
-from java import jclass
+lableText = None
+
+def isAndroid():
+    if plt == "Windows":
+        print("Your system is Windows")
+        return False
+        # do x y z
+    elif plt == "Linux":
+        print("Your system is Linux")
+        if 'ANDROID_BOOTLOGO' in environ:
+            print("====================>Running on Android")
+            return True
+        else:
+            print("Not Android OS")
+            return False
+         # do x y z
+    elif plt == "Darwin":
+        print("Your system is MacOS")
+        return False
+        # do x y z
+    else:
+        print("Unidentified system")
+        return False
+
+if isAndroid():
+    # 调用 Java 的 Android API 示例
+    from java import jclass
 
 def send_msg_toJava(msg):
-     # 获取 Java 类
-        MyJavaClass = jclass('org.beeware.android.MainActivity')
+        if isAndroid():
+        # 获取 Java 类
+            MyJavaClass = jclass('org.beeware.android.MainActivity')
 
-        # 创建类的实例
-        my_java_object = MyJavaClass()
+            # 创建类的实例
+            my_java_object = MyJavaClass()
 
-        # 调用 Java 方法
-        my_java_object.onPthonCallback(msg)
+            # 调用 Java 方法
+            my_java_object.onPthonCallback(msg)
+        else:
+            global lableText
+            if lableText is not None:  # 检查 lableText 是否被正确初始化
+                lableText.text = f"{lableText.text}\n{msg}"
+            print("------>" + msg)
 
 def java_start_analyze_engine_log_file(in_log_file_path,out_file_path):
     send_msg_toJava("开始拆分engine日志文件。。。")
@@ -77,7 +108,7 @@ def java_start_analyze_log_file(file_path):
     print(u"Hello,python java_start_analyze_log_file log_file_path={}".format(log_file_path))
     # 去掉文件名，拼接成新的目录路径
     out_log_file_path = os.path.join(os.path.dirname(log_file_path), 'logs')
-    send_msg_toJava(u"日志输出目录为:".format(out_log_file_path) )
+    send_msg_toJava(u"日志输出目录为:{}".format(out_log_file_path) )
 
     # # 检查目录是否存在，不存在则创建
     # if not os.path.exists(out_log_file_path):
@@ -86,8 +117,8 @@ def java_start_analyze_log_file(file_path):
     
    # 获取文件名和扩展名
     file_name, file_extension = os.path.splitext(os.path.basename(log_file_path))
-    send_msg_toJava(u"文件名:".format(file_name) )
-    send_msg_toJava(u"扩展名:".format(file_extension) )
+    send_msg_toJava(u"文件名:{}".format(file_name) )
+    send_msg_toJava(u"扩展名:{}".format(file_extension) )
     # 先判断文件后缀是否是 .log
     if file_extension == ".log":
         # 文件是 .log 类型的，继续判断文件名
@@ -118,41 +149,38 @@ class LogFileProcess(toga.App):
         We then create a main window (with a name matching the app), and
         show the main window.
         """
+        global lableText  # 引用全局变量
+        if plt == "Windows" or plt == "Linux" or plt == "Darwin":
+            main_box = toga.Box()
 
-        # log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/webrtc-native2024-09-24.log"
-        # out_log_file_path = u"/Users/luoyongmeng/Downloads/Linkdood/声音/logs"
-        # if plt == "Windows":
-        #     print("Your system is Windows")
-        # # do x y z
-        # elif plt == "Linux":
-        #     print("Your system is Linux")
-        #     if 'ANDROID_BOOTLOGO' in environ:
-        #         print("====================>Running on Android")
-        #         log_file_path = u"/storage/emulated/0/pythonz/webrtc-native2024-09-24.log"
-        #         out_log_file_path = u"/storage/emulated/0/pythonz/logs"
-        #     else:
-        #         print("Not Android OS")
-        #     # do x y z
-        # elif plt == "Darwin":
-        #     print("Your system is MacOS")
-        #     # do x y z
-        # else:
-        #     print("Unidentified system")
+            self.main_window = toga.MainWindow(title=self.formal_name)
+            # 按钮点击事件处理器 (异步)
+            async def open_file_dialog(widget):
+                # 使用新的 dialog 方法来打开文件选择对话框
+                file_path = await self.main_window.dialog(
+                    toga.OpenFileDialog(title="Select a file")
+                )
+                
+                if file_path:
+                    # 如果用户选择了文件，显示文件路径
+                    self.label.text = f"Selected file: {file_path}"
+                    java_start_analyze_log_file(str(file_path))
+                else:
+                    self.label.text = "No file selected."
 
-           
-           
-        # # 步骤1：拆分日志文件
-        # webrtc_log.split_log_by_webrtc_init(log_file_path,out_log_file_path)
+            # 创建按钮并绑定事件处理器
+            button = toga.Button("Select File", on_press=open_file_dialog)
 
-        # # 步骤2：提取.mm:日志到objc文件
-        # webrtc_log.extract_objc_lines_from_logs(out_log_file_path)
-        
-        print("Log splitting and objc extraction completed.")
-        main_box = toga.Box()
+            # 创建标签显示选中的文件
+            self.label = toga.Label("No file selected.")
+            lableText = self.label  # 赋值给全局变量
 
-        self.main_window = toga.MainWindow(title=self.formal_name)
-        self.main_window.content = main_box
-        self.main_window.show()
+            # 创建布局
+            box = toga.Box(children=[button, self.label], style=Pack(direction=COLUMN, padding=10))
+
+            # 将布局设置为主窗口的内容
+            self.main_window.content = box
+            self.main_window.show()
 
 
 def main():

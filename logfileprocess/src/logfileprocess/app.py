@@ -16,7 +16,7 @@ from logfileprocess.tools.engine_log_analyze_data_png       import data_to_plot
 from logfileprocess.tools.engine_log_analyze_data           import log_split_and_grep
 from logfileprocess.tools.engine_log_analyze_data_prcess    import details_logs
 from logfileprocess.tools.webrtc_log                        import webrtc_log
-import threading
+import subprocess
 
 
 from os import environ
@@ -90,6 +90,23 @@ def scroll_to_bottom():
     # 如果内容高度大于可视高度，进行滚动
     if content_height > visible_height:
         log_container.scroll_to(content_height, 0)
+def open_output_folder(folder_path):
+    current_platform = platform.system()
+    
+    try:
+        if current_platform == "Windows":
+            # Windows: 使用 explorer 打开文件夹
+            os.startfile(folder_path)
+        elif current_platform == "Darwin":
+            # macOS: 使用 open 打开文件夹
+            subprocess.Popen(["open", folder_path])
+        elif current_platform == "Linux":
+            # Linux: 使用 xdg-open 打开文件夹
+            subprocess.Popen(["xdg-open", folder_path])
+        else:
+            print("不支持的操作系统，无法打开文件夹。")
+    except Exception as e:
+        print(f"无法打开文件夹: {str(e)}")
 def java_start_analyze_engine_log_file(in_log_file_path,out_file_path):
     send_msg_toJava("开始拆分engine日志文件。。。")
     log_split_and_grep.file_log_content_splitter(in_log_file_path,out_file_path)
@@ -165,17 +182,30 @@ def java_start_analyze_log_file(file_path):
         # 文件不是 .log 类型的
         send_msg_toJava("文件后缀不是 .log，不执行操作")
     
+    send_msg_toJava("日志分析完成！")
+    
+    # 分析完成后，打开输出文件夹
+    open_output_folder(out_log_file_path)
+    
 class LogFileProcess(toga.App):
     def startup(self):
         global log_box, log_container  # 引用全局变量
         if plt == "Windows" or plt == "Linux" or plt == "Darwin":
             self.main_window = toga.MainWindow(title=self.formal_name)
-
+           # 创建一个标签用于提示信息
+            self.info_label = toga.Label(
+                "目前支持WebRTC和enging的日志分析\n"
+                "1. 打开 .log 后缀的文件后自动开始分析。\n"
+                "2. engine 相关的日志在 logs 目录下。\n"
+                "3. 单独打开 logs 下关于 engine 分割后的日志可以分析某一个日志。",
+                style=Pack(padding=10, font_size=12, color="black")
+            )
             # 创建按钮并绑定事件处理器，并设置背景色为蓝色，文本为白色
             button = toga.Button(
                 "Select File",
                 on_press=self.open_file_dialog,
                 style=Pack(
+                    width=200,  # 宽度200像素
                     background_color="blue",  # 背景色蓝色
                     color="white",  # 字体颜色白色
                     padding=10,
@@ -186,10 +216,10 @@ class LogFileProcess(toga.App):
             log_box = toga.Box(style=Pack(direction=COLUMN, padding=10))
 
             # 创建一个 ScrollContainer，将其内容设置为 log_box
-            log_container = toga.ScrollContainer(content=log_box, style=Pack(height=600))  # 300 是设置的高度，你可以根据需求调整
+            log_container = toga.ScrollContainer(content=log_box, style=Pack(height=600,width=800))  # 300 是设置的高度，你可以根据需求调整
 
             # 创建布局：先放按钮，后放日志显示区域
-            main_box = toga.Box(children=[button, log_container], style=Pack(direction=COLUMN, padding=20))
+            main_box = toga.Box(children=[self.info_label,button, log_container], style=Pack(direction=COLUMN, padding=20))
 
             # 设置主窗口内容
             self.main_window.content = main_box

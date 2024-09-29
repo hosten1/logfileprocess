@@ -285,8 +285,9 @@ def java_start_analyze_log_file(file_path):
 class LogFileProcess(toga.App):
     def startup(self):
         global log_box, log_container  # 引用全局变量
-        if plt == "Windows" or plt == "Linux" or plt == "Darwin":
-            self.main_window = toga.MainWindow(title=self.formal_name)
+        self.main_window = toga.MainWindow(title=self.formal_name)
+
+        if not isAndroid():
             # 创建一个标签用于提示信息
             self.info_label = toga.Label(
                 "目前支持WebRTC和enging的日志分析\n"
@@ -320,7 +321,12 @@ class LogFileProcess(toga.App):
                 children=[self.info_label, button, log_container],
                 style=Pack(direction=COLUMN, padding=20),
             )
-
+            # 设置主窗口内容
+            self.main_window.content = main_box
+            self.main_window.show()
+        else:
+            # 创建一个 Box 用于显示日志
+            main_box = toga.Box(style=Pack(direction=COLUMN, padding=10))
             # 设置主窗口内容
             self.main_window.content = main_box
             self.main_window.show()

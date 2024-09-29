@@ -1,4 +1,4 @@
-# Generated 2024-09-29 15:29:12.752374
+# Generated 2024-09-29 18:08:11.894766
 matplotlib
 numpy
 toga-android~=0.4.5

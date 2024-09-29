@@ -36,6 +36,7 @@ import android.Manifest;
 import android.provider.Settings;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.WindowDecorActionBar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.content.pm.PackageManager;
@@ -46,7 +47,7 @@ import ru.bartwell.exfilepicker.ExFilePicker;
 import ru.bartwell.exfilepicker.data.ExFilePickerResult;
 
 
-public class MainActivity extends AppCompatActivity  {
+public class MainActivity extends AppCompatActivity implements ProcessLogFile.OnPythonCallbackListener {
 
     private static final int REQUEST_CODE_MANAGE_STORAGE = 1001;
     private static final int REQUEST_CODE_STORAGE_PERMISSIONS = 1002;
@@ -57,13 +58,17 @@ public class MainActivity extends AppCompatActivity  {
     private Python py;
 
     private AppCompatActivity mActivity;
+    public ProcessLogFile processLogFile;
     private final int EX_FILE_PICKER_RESULT = 0xfa01;
     private String startDirectory = null;// 记忆上一次访问的文件目录路径
 
     private TextView file_path_tv;
 
-    private TextView tvMessages;
-    private ScrollView scrollView;
+    public TextView logShowMessagesTV;
+    public ScrollView scrollView;
+
+    // 静态方法返回 processLogFile 实例
+    public static MainActivity instance;
     /**
      * This method is called by `app.__main__` over JNI in Python when the BeeWare
      * app launches.
@@ -113,9 +118,11 @@ public class MainActivity extends AppCompatActivity  {
 
         singletonThis = this;
         file_path_tv = findViewById(R.id.file_path_tv);
-        // 获取 TextView 和 ScrollView 的引用
-        tvMessages = findViewById(R.id.tv_messages);
+        logShowMessagesTV = findViewById(R.id.tv_messages);
         scrollView = findViewById(R.id.scrollView);
+        logShowMessagesTV.setText("欢迎使用");
+        // 初始化 ProcessLogFile，并传递当前 Activity 作为回调监听器
+        processLogFile = new ProcessLogFile( this);
         if (Python.isStarted()) {
             Log.d(TAG, "Python already started");
             py = Python.getInstance();
@@ -158,6 +165,7 @@ public class MainActivity extends AppCompatActivity  {
         super.onStart();
         userCode("onStart");
         Log.d(TAG, "onStart() complete");
+        instance = this;
     }
 
     protected void onResume() {
@@ -335,41 +343,37 @@ public class MainActivity extends AppCompatActivity  {
         exFilePicker.start(mActivity, EX_FILE_PICKER_RESULT);
     }
     public void onPthonCallback(String msg){
-        Log.d("MainActivity", "收到的消息来自 Python: " + msg);
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            @Override
-            public void run() {
-                Log.d("MainActivity", "Message from Python: " + msg);
+        // 将新的消息追加到 TextView 中
+//        if (logShowMessagesTV == null){
+//            // 获取 TextView 和 ScrollView 的引用
+//            logShowMessagesTV = findViewById(R.id.tv_messages);
+//            scrollView = findViewById(R.id.scrollView);
+//            logShowMessagesTV.setText("欢迎使用");
+//        }
+        Log.d("MainActivity", "Message from Python: " + msg);
 //                String cacheMsg = tvMessages.getText().toString() + "\n" + msg;
-//                tvMessages.setText(cacheMsg);
-//                scrollView.fullScroll(View.FOCUS_DOWN);  // 确保消息显示在滚动视图的底部
-            }
-        });
+//        logShowMessagesTV.setText(msg);
 
-//        // 确保 UI 更新在主线程中进行
-//        runOnUiThread(new Runnable() {
-//            @Override
-//            public void run() {
-//                // 将新的消息追加到 TextView 中
-//                tvMessages.append(msg + "\n");
-//
-//                // 自动滚动到最新消息
-//                scrollView.post(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        scrollView.fullScroll(View.FOCUS_DOWN);
-//                    }
-//                });
-//            }
-//        });
+
+
+
     }
 
     public void btn_start_analyze_click(View view) {
-        String filePath  = (String) file_path_tv.getText();
+        String filePath  = file_path_tv.getText().toString();
         Log.d(TAG, "btn_start_analyze_click: "+filePath);
         checkAndCreateLogsDirectory(filePath);
+
+        // 在子线程中执行 Python 调用
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                // 在子线程中调用 Python 方法
+//                py.getModule("logfileprocess.app").callAttr("java_start_analyze_log_file", filePath);
+//            }
+//        }).start();  // 启动线程
         py.getModule("logfileprocess.app").callAttr(
-                "java_start_analyze_log_file",filePath
+                "run_async_task",filePath
         );
 
     }
@@ -396,5 +400,40 @@ public class MainActivity extends AppCompatActivity  {
         } else {
             Log.e("FileUtils", "Parent directory does not exist.");
         }
+    }
+
+    @Override
+    public void onPythonCallback(String msg) {
+       Log.d(TAG, "onPythonCallback: "+msg);
+        // 确保 UI 更新在主线程中进行
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                // 将新的消息追加到 TextView 中
+                if (logShowMessagesTV == null){
+                    // 获取 TextView 和 ScrollView 的引用
+                    logShowMessagesTV = findViewById(R.id.tv_messages);
+                    scrollView = findViewById(R.id.scrollView);
+                    logShowMessagesTV.setText("欢迎使用");
+                }
+                Log.d("MainActivity", "Message from Python: " + msg);
+                String cacheMsg = logShowMessagesTV.getText().toString() + "\n" + msg;
+                logShowMessagesTV.setText(cacheMsg);
+
+                // 自动滚动到最新消息
+                scrollView.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        scrollView.fullScroll(View.FOCUS_DOWN);
+                    }
+                });
+            }
+        });
+    }
+    public static ProcessLogFile getProcessLogFile() {
+        return instance.processLogFile;
+    }
+    public static MainActivity getInstance() {
+        return instance;
     }
 }

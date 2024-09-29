@@ -74,10 +74,16 @@ async def process_log_queue():
 def process_log_queue_(message):
     if isAndroid():
         # 获取 Java 类
-        MyJavaClass = jclass("org.beeware.android.MainActivity")
+        MainActivity = jclass("org.beeware.android.MainActivity")
+        # 调用静态方法获取 processLogFile 实例
+        processLogFile = MainActivity.getProcessLogFile()
+        my_java_object = MainActivity.getInstance()
 
+        # 调用 processLogFile 实例的方法
+        processLogFile.onPthonCallback(message)
         # 创建类的实例
-        my_java_object = MyJavaClass()
+        # my_java_object = MyJavaClass()
+        print("------>" + message)
 
         # 调用 Java 方法
         my_java_object.onPthonCallback(message)
@@ -97,8 +103,13 @@ def start_processing_log_queue():
 
 
 def send_msg_toJava(msg):
-    # 将消息放入队列，后台线程可以安全地调用此方法
     log_queue.put(msg)
+    # if isAndroid():
+    #     # 调用 Java 的 Android API 示例
+    #     process_log_queue_(msg)
+    # else:
+    #     # 将消息放入队列，后台线程可以安全地调用此方法
+    #     log_queue.put(msg)
 
 
 def update_log_view(message):
@@ -282,6 +293,15 @@ def java_start_analyze_log_file(file_path):
     open_output_folder(out_log_file_path)
 
 
+def run_async_task(file_path):
+    # 获取当前事件循环
+    loop = asyncio.get_event_loop()
+
+    # 启动线程来执行 java_start_analyze_log_file
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        loop.run_in_executor(executor, java_start_analyze_log_file, str(file_path))
+
+
 class LogFileProcess(toga.App):
     def startup(self):
         global log_box, log_container  # 引用全局变量
@@ -341,15 +361,7 @@ class LogFileProcess(toga.App):
         if file_path:
             send_msg_toJava(f"Selected file: {file_path}")
             # java_start_analyze_log_file(str(file_path))
-            # 获取当前事件循环
-            loop = asyncio.get_event_loop()
-
-            # 启动线程来执行 java_start_analyze_log_file
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                await loop.run_in_executor(
-                    executor, java_start_analyze_log_file, str(file_path)
-                )
-
+            run_async_task(file_path)
             send_msg_toJava("Analysis started in background.")
         else:
             send_msg_toJava("No file selected.")

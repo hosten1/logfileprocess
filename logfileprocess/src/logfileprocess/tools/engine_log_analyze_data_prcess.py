@@ -137,20 +137,6 @@ class details_logs:
                         transports["start_time"] = start_time
                     send_transport_lines[direct_str] += 1
                     callback("direction_match send : {}".format(direct_str))
-                    # if "send" in line:
-
-                    # elif "recv" in line:
-                    #     transports["direction"] = "recv"
-                    #     start_time_match = re.search(time_pattern, line)
-                    #     if start_time_match:
-                    #         start_time = start_time_match.group(1)
-                    #         transports["start_time"] = start_time
-                    #     send_transport_lines["recv"] += 1
-                    #     callback(
-                    #         "direction_match recv: {}".format(direction_match.group(1))
-                    #     )
-                    # else:
-                    #     continue
 
                 createTransports.append(transports)
                 callback(
@@ -339,11 +325,11 @@ class details_logs:
                                     }
                                     transports["other_info"].append(other_state)
 
-                                callback(
-                                    "direction:{} state:{} state_time:{}".format(
-                                        direction, state, state_time
-                                    )
-                                )
+                                # callback(
+                                #     "direction:{} state:{} state_time:{}".format(
+                                #         direction, state, state_time
+                                #     )
+                                # )
         callback("-----------收集每个方向的事件 end-------------")
         callback("----------完成 createTransports={}".format(createTransports))
         return createTransports
@@ -581,13 +567,6 @@ class details_logs:
                 join_end_time_match = re.search(time_pattern, line)
                 if join_end_time_match:
                     results["join"]["end_time"] = join_end_time_match.group(1)
-                    # json_str = self.parse_logs_detail_extract_json(
-                    #     file_all_log_lines, idx
-                    # )
-                    # json_str = (
-                    #     json_str.replace("=", ":").replace("(", "[").replace(")", "]")
-                    # )
-                    # results["join"]["resp_data"] = json.loads(json_str)
                     callback(
                         "Searching for join callback success end_time={}".format(
                             results["join"]["end_time"]

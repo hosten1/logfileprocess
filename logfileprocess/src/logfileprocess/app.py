@@ -12,12 +12,14 @@ import codecs
 
 import platform
 
-from logfileprocess.tools.engine_log_analyze_data_png import data_to_plot
+from logfileprocess.tools.engine_log_analyze_data_png import DataToPlot
 from logfileprocess.tools.engine_log_analyze_data import log_split_and_grep
 from logfileprocess.tools.engine_log_analyze_data_prcess import details_logs
-from logfileprocess.tools.webrtc_log import webrtc_log
+from logfileprocess.tools.webrtc_log import webrtcAnalyzeLog
 import subprocess
-
+import concurrent.futures
+import asyncio
+import queue
 
 from os import environ
 
@@ -26,6 +28,8 @@ plt = platform.system()
 # log_messages = []  # 用于存储日志消息
 log_box = None  # 用于存放日志的 Box
 log_container = None  # 用于存放 ScrollContainer
+# 创建一个线程安全的队列，用于在后台线程与主线程间传递日志消息
+log_queue = queue.Queue()
 
 
 def isAndroid():
@@ -56,7 +60,18 @@ if isAndroid():
     from java import jclass
 
 
-def send_msg_toJava(msg):
+async def process_log_queue():
+    while True:
+        # 如果队列不为空，获取并处理消息
+        if not log_queue.empty():
+            message = log_queue.get()
+            if message:
+                process_log_queue_(message)  # 更新日志视图
+        await asyncio.sleep(0.03)  # 每 100ms 检查一次队列
+
+
+# 定期从队列中取出日志并更新到 UI 上
+def process_log_queue_(message):
     if isAndroid():
         # 获取 Java 类
         MyJavaClass = jclass("org.beeware.android.MainActivity")
@@ -65,12 +80,25 @@ def send_msg_toJava(msg):
         my_java_object = MyJavaClass()
 
         # 调用 Java 方法
-        my_java_object.onPthonCallback(msg)
+        my_java_object.onPthonCallback(message)
     else:
         # global log_messages
         # log_messages.append(msg)  # 将消息添加到日志列表
-        update_log_view(msg)  # 更新日志视图
-        print("------>" + msg)
+        update_log_view(message)  # 更新日志视图
+        print("------>" + message)
+
+
+# 定时器，每隔一段时间执行一次
+def start_processing_log_queue():
+    loop = asyncio.get_event_loop()
+    loop.create_task(process_log_queue())  # 启动日志处理任务
+    # app = toga.App.app  # 获取当前的 Toga App 实例
+    # app.add_periodic_task(0.1, process_log_queue_)  # 每隔 100ms 检查日志队列
+
+
+def send_msg_toJava(msg):
+    # 将消息放入队列，后台线程可以安全地调用此方法
+    log_queue.put(msg)
 
 
 def update_log_view(message):
@@ -127,6 +155,7 @@ def java_start_analyze_engine_log_file(in_log_file_path, out_file_path):
 def java_start_analyze_webrtc_log_file(in_log_file_path, out_file_path):
     # 步骤1：拆分日志文件
     send_msg_toJava("开始拆分webrtc日志文件。。。")
+    webrtc_log = webrtcAnalyzeLog()
     webrtc_log.split_log_by_webrtc_init(
         in_log_file_path, out_file_path, callback=send_msg_toJava
     )
@@ -135,24 +164,62 @@ def java_start_analyze_webrtc_log_file(in_log_file_path, out_file_path):
     webrtc_log.extract_objc_lines_from_logs(out_file_path, callback=send_msg_toJava)
 
 
+def java_start_analyze_engine_process_sessions_file(in_log_file_path, out_file_path):
+    send_msg_toJava("开始提取日志关键信息。。。")
+    # 遍历目标文件夹
+    for file_name in os.listdir(out_file_path):
+        # 如果文件名包含 '_session'
+        if "_session" in file_name:
+            # 获取文件的完整路径
+            full_file_path = os.path.join(out_file_path, file_name)
+
+            # 确保它是一个文件而不是文件夹
+            if os.path.isfile(full_file_path):
+                # 构造要创建的文件夹路径
+                folder_name = file_name.replace("_session", "_logs")
+                logs_folder_path = os.path.join(out_file_path, folder_name)
+
+                # 检查文件夹是否已经存在
+                if not os.path.exists(logs_folder_path):
+                    # 创建文件夹
+                    os.makedirs(logs_folder_path)
+                    print(f"Created folder: {logs_folder_path}")
+                else:
+                    print(f"Folder already exists: {logs_folder_path}")
+                java_start_analyze_engine_process_file(full_file_path, logs_folder_path)
+
+
 def java_start_analyze_engine_process_file(in_log_file_path, out_file_path):
     send_msg_toJava("开始提取日志关键信息。。。")
     detailsLogs = details_logs()
+    data_to_plot = DataToPlot()
     detailsLogs.parse_logs_detail(
         in_log_file_path, out_file_path, callback=send_msg_toJava
     )
-    # send_msg_toJava("开始分析日志,保存在成图。。。")
-    # data_to_plot.process_rtc_status_send_data_logs(in_log_file_path,out_file_path,callback=send_msg_toJava)
-    # send_msg_toJava("开始分析发送端音频日志,保存在成图。。。")
-    # data_to_plot.extract_and_plot_aslevels(in_log_file_path,out_file_path,callback=send_msg_toJava)
-    # send_msg_toJava("开始分析接收音频日志,保存在成图。。。")
-    # data_to_plot.extract_and_plot_arlevels_recv(in_log_file_path,out_file_path,callback=send_msg_toJava)
-    # send_msg_toJava("开始分析接收和发送的音频日志,保存在成图。。。")
-    # data_to_plot.extract_and_plot_levels_RS(in_log_file_path,out_file_path,callback=send_msg_toJava)
-    # send_msg_toJava("开始分析接收到的音频其他数据信息,保存在成图。。。")
-    # data_to_plot.process_rtc_status_recv_data_logs(in_log_file_path,out_file_path,callback=send_msg_toJava)
-    # send_msg_toJava("开始分析发送方的音频其他数据信息,保存在成图。。。")
-    # data_to_plot.process_rtc_status_send_data_logs(in_log_file_path,out_file_path,callback=send_msg_toJava)
+    send_msg_toJava("开始分析日志,保存在成图。。。")
+    data_to_plot.process_rtc_status_send_data_logs(
+        in_log_file_path, out_file_path, callback=send_msg_toJava
+    )
+    send_msg_toJava("开始分析发送端音频日志,保存在成图。。。")
+    data_to_plot.extract_and_plot_aslevels(
+        in_log_file_path, out_file_path, callback=send_msg_toJava
+    )
+    send_msg_toJava("开始分析接收音频日志,保存在成图。。。")
+    data_to_plot.extract_and_plot_arlevels_recv(
+        in_log_file_path, out_file_path, callback=send_msg_toJava
+    )
+    send_msg_toJava("开始分析接收和发送的音频日志,保存在成图。。。")
+    data_to_plot.extract_and_plot_levels_RS(
+        in_log_file_path, out_file_path, callback=send_msg_toJava
+    )
+    send_msg_toJava("开始分析接收到的音频其他数据信息,保存在成图。。。")
+    data_to_plot.process_rtc_status_recv_data_logs(
+        in_log_file_path, out_file_path, callback=send_msg_toJava
+    )
+    send_msg_toJava("开始分析发送方的音频其他数据信息,保存在成图。。。")
+    data_to_plot.process_rtc_status_send_data_logs(
+        in_log_file_path, out_file_path, callback=send_msg_toJava
+    )
 
 
 def java_choose_file_path(str):
@@ -191,6 +258,9 @@ def java_start_analyze_log_file(file_path):
         if "RTCEngine" in file_name:
             send_msg_toJava("文件名包含 'RTCEngine'，执行分割日志操作...")
             java_start_analyze_engine_log_file(log_file_path, out_log_file_path)
+            java_start_analyze_engine_process_sessions_file(
+                log_file_path, out_log_file_path
+            )
             # 执行与 RTCEngine 相关的操作
         elif "webrtc-native" in file_name:
             send_msg_toJava("文件名包含 'webrtc-native'，执行分割日志操作...")
@@ -254,6 +324,8 @@ class LogFileProcess(toga.App):
             # 设置主窗口内容
             self.main_window.content = main_box
             self.main_window.show()
+            # 启动定时处理日志队列的任务
+        start_processing_log_queue()
 
     async def open_file_dialog(self, widget):
         file_path = await self.main_window.dialog(
@@ -262,7 +334,17 @@ class LogFileProcess(toga.App):
 
         if file_path:
             send_msg_toJava(f"Selected file: {file_path}")
-            java_start_analyze_log_file(str(file_path))
+            # java_start_analyze_log_file(str(file_path))
+            # 获取当前事件循环
+            loop = asyncio.get_event_loop()
+
+            # 启动线程来执行 java_start_analyze_log_file
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                await loop.run_in_executor(
+                    executor, java_start_analyze_log_file, str(file_path)
+                )
+
+            send_msg_toJava("Analysis started in background.")
         else:
             send_msg_toJava("No file selected.")
 

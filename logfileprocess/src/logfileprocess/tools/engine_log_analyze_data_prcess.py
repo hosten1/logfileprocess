@@ -123,10 +123,7 @@ class details_logs:
                     "end_time": "",
                     "duration": 0,
                 },
-                "other_info": {
-                    "disconnect_time": "",
-                    "failed_time": "",
-                },
+                "other_info": [],
             }
             if "createTransport()" in line:
                 # 查找匹配createTransport关键词 提取direction和start_time
@@ -293,42 +290,63 @@ class details_logs:
                 direction_match = re.search(r"direction:\s*(\w+)", line)
                 if direction_match:
                     direction = direction_match.group(1)
-                    if direction in transports:
-                        state_time_match = re.search(time_pattern, line)
-                        if state_time_match:
-                            state = re.search(
-                                r"Transport connection state changed to\s+(\w+)", line
-                            ).group(1)
-                            state_time = state_time_match.group(1)
-                            if state == "connected":
-                                transports[direction]["connected_time"] = state_time
-                                transports[direction]["connected_state"] = state
-                            else:
-                                transports[direction]["disconnected_time"] = state_time
-                                transports[direction]["disconnected_state"] = state
+                    for transports in createTransports:
+                        if transports["direction"] == direction:
+                            callback(
+                                "direction:{} transports:{}".format(
+                                    direction, transports["direction"]
+                                )
+                            )
+                            state_time_match = re.search(time_pattern, line)
+                            if state_time_match:
+                                state = re.search(
+                                    r"Transport connection state changed to\s+(\w+)",
+                                    line,
+                                ).group(1)
+                                state_time = state_time_match.group(1)
+                                duration = self.calculate_duration_(
+                                    transports["start_time"],
+                                    state_time,
+                                )
+                                if state == "connected":
+                                    transports["end_time"] = state_time
+                                    transports["duration"] = duration
+                                    connected_state = {
+                                        "state": state,
+                                        "time": state_time,
+                                        "duration": duration,
+                                    }
+                                    transports["other_info"].append(connected_state)
+                                elif state == "failed":
+                                    failed_state = {
+                                        "state": state,
+                                        "time": state_time,
+                                        "duration": duration,
+                                    }
+                                    transports["other_info"].append(failed_state)
+                                elif state == "disconnected":
+                                    disconnected_state = {
+                                        "state": state,
+                                        "time": state_time,
+                                        "duration": duration,
+                                    }
+                                    transports["other_info"].append(disconnected_state)
+                                else:
+                                    other_state = {
+                                        "state": state,
+                                        "time": state_time,
+                                        "duration": duration,
+                                    }
+                                    transports["other_info"].append(other_state)
 
-        # 组织结果
-        for direction, transport in transports.items():
-            connected_time = transport["connected_time"]
-            disconnected_time = transport["disconnected_time"]
-
-            if connected_time:
-                duration = self.calculate_duration_(
-                    transport["start_time"], connected_time
-                )
-                other_info = {
-                    "disconnect_time": disconnected_time,
-                    "failed_time": disconnected_time,
-                }
-                transport_entry = {
-                    "direction": direction,
-                    "start_time": transport["start_time"],
-                    "end_time": connected_time,
-                    "duration": duration,
-                    "state": transport["connected_state"],
-                    "other_info": other_info,
-                }
-                results["createTransport"].append(transport_entry)
+                                callback(
+                                    "direction:{} state:{} state_time:{}".format(
+                                        direction, state, state_time
+                                    )
+                                )
+        callback("-----------收集每个方向的事件 end-------------")
+        callback("----------完成 createTransports={}".format(createTransports))
+        return createTransports
 
     # 分析socketio发送数据相关  开始
     def extract_json_from_logs_(self, log_lines):
@@ -576,8 +594,10 @@ class details_logs:
                         )
                     )
                     break
-
-        self.search_create_transport_data_(file_all_log_lines, results, callback)
+        # Step 6: 处理 createTransport
+        results["createTransport"] = self.search_create_transport_data_(
+            file_all_log_lines, results, callback
+        )
 
         # 计算持续时间并打印结果
         for section in ["joinRoomInternal", "queryRoom", "join", "verify_msg"]:

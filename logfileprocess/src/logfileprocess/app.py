@@ -30,24 +30,24 @@ log_container = None  # 用于存放 ScrollContainer
 
 def isAndroid():
     if plt == "Windows":
-        print("Your system is Windows")
+        # print("Your system is Windows")
         return False
         # do x y z
     elif plt == "Linux":
         print("Your system is Linux")
         if "ANDROID_BOOTLOGO" in environ:
-            print("====================>Running on Android")
+            # print("====================>Running on Android")
             return True
         else:
-            print("Not Android OS")
+            # print("Not Android OS")
             return False
         # do x y z
     elif plt == "Darwin":
-        print("Your system is MacOS")
+        # print("Your system is MacOS")
         return False
         # do x y z
     else:
-        print("Unidentified system")
+        # print("Unidentified system")
         return False
 
 

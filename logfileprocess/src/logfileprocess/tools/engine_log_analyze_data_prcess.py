@@ -103,6 +103,233 @@ class details_logs:
                 # callback("No protoo Peer 'open' event found.")
             line_cout += 1
 
+    def search_create_transport_data_(self, file_all_log_lines, results, callback):
+        callback("开始分析 createTransport 数据")
+        # Step 6: 处理 createTransport
+        createTransports = []
+
+        time_pattern = r"\[(\d{2}:\d{2}:\d{2}:\d{3})"
+        send_transport_lines = {"send": 0, "recv": 0}
+        # 处理 createTransport
+        for line in file_all_log_lines:
+            transports = {
+                "direction": "",
+                "start_time": "",
+                "end_time": "",
+                "duration": 0,
+                "state": "",
+                "send_createTransport": {
+                    "start_time": "",
+                    "end_time": "",
+                    "duration": 0,
+                },
+                "other_info": {
+                    "disconnect_time": "",
+                    "failed_time": "",
+                },
+            }
+            if "createTransport()" in line:
+                # 查找匹配createTransport关键词 提取direction和start_time
+                direction_match = re.search(r"direction:\((\w+)\)", line)
+                if direction_match:
+                    direct_str = direction_match.group(1)
+                    transports["direction"] = direct_str
+                    start_time_match = re.search(time_pattern, line)
+                    if start_time_match:
+                        start_time = start_time_match.group(1)
+                        transports["start_time"] = start_time
+                    send_transport_lines[direct_str] += 1
+                    callback("direction_match send : {}".format(direct_str))
+                    # if "send" in line:
+
+                    # elif "recv" in line:
+                    #     transports["direction"] = "recv"
+                    #     start_time_match = re.search(time_pattern, line)
+                    #     if start_time_match:
+                    #         start_time = start_time_match.group(1)
+                    #         transports["start_time"] = start_time
+                    #     send_transport_lines["recv"] += 1
+                    #     callback(
+                    #         "direction_match recv: {}".format(direction_match.group(1))
+                    #     )
+                    # else:
+                    #     continue
+
+                createTransports.append(transports)
+                callback(
+                    "direction_match send : createTransports={}".format(
+                        createTransports
+                    )
+                )
+
+        def get_transport_direction(direction):
+            # 遍历 createTransports，根据其中的 direction 和参数 direction 进行判断返回 transport 的索引值
+            for i, transport in enumerate(createTransports):
+                print(
+                    f"Checking transport in_direction={direction} at index {i}: {transport['direction']}"
+                )
+                if transport["direction"] == direction:
+                    print(f"Match found at index {i}")
+                    return i
+            # 如果找不到匹配项，返回 None 或其他标识
+            print("No match found")
+            return -1
+
+        # 处理 createTransport
+        callback("-----------查找 发送 createTransport的服务消息 begin-------------")
+        finded_send_transport_idx = 0
+
+        for line_idx, line in enumerate(file_all_log_lines):
+            # 正则表达式：匹配 sendMessage 后跟随 allKeys 并且包含 "createTransport"
+            send_createTransport_pattern = (
+                r'sendMessage.*?allKeys.*?"method"\s*[:=]\s*"createTransport"'
+            )
+
+            # 查找是否有匹配
+            send_createTransport_pattern_matches = re.search(
+                send_createTransport_pattern, line
+            )
+
+            if send_createTransport_pattern_matches and (
+                "dtlsParameters" in line or "localIP" in line
+            ):
+                callback(
+                    f"send_createTransport_pattern_matches: {send_createTransport_pattern_matches.group()}"
+                )
+
+                # 正则表达式：匹配 "direction":"recv" 或 "direction"="recv"
+                createTransport_pattern = r'"direction"\s*[:=]\s*"(\w+)"'
+
+                # 查找方向
+                createTransport_matches = re.search(createTransport_pattern, line)
+                if createTransport_matches:
+                    direct_str = createTransport_matches.group(1)
+                    callback(f"createTransport_matches direction: {direct_str}")
+
+                    # 获取时间戳
+                    time_pattern = r"\[(\d{2}:\d{2}:\d{2}:\d{3})"
+                    start_time_match = re.search(time_pattern, line)
+                    if start_time_match:
+                        start_time = start_time_match.group(1)
+
+                        # 根据 direction 获取索引值
+                        idx = get_transport_direction(direct_str)
+                        createTransport_t = createTransports[idx][
+                            "send_createTransport"
+                        ]
+                        createTransport_t["start_time"] = start_time
+
+                        callback(
+                            f"send createTransport start_time: {start_time}, direction: {direct_str}, "
+                            f"createTransport_t: {createTransport_t}, idx: {idx}, line_idx: {line_idx}"
+                        )
+
+                        finded_send_transport_idx += 1
+                    # if '"send"' in line:
+
+                    # elif '"recv"' in line:
+                    #     idx = get_transport_direction("recv")
+                    #     callback(
+                    #         "send createTransport start_time:recv {} idx:{}".format(
+                    #             start_time, idx
+                    #         )
+                    #     )
+                    #     createTransports[idx]["send_createTransport"][
+                    #         "start_time"
+                    #     ] = start_time
+                # continue
+            # 查到找到createTransport的服务消息的返回回调
+        callback(
+            "-----------查找 发送 createTransport的服务消息 finded_send_transport_idx = {} end-------------".format(
+                finded_send_transport_idx
+            )
+        )
+        callback("-----------查找createTransport的服务消息的返回回调-------------")
+        caeate_transport_resp_line_ldx = 0
+        for line_idx, line in enumerate(file_all_log_lines):
+            if (
+                "sendMessage(method = createTransport)" in line
+                and "callback:respData" in line
+            ):
+                end_time_match = re.search(time_pattern, line)
+                if end_time_match:
+                    end_time = end_time_match.group(1)
+                    # 如果createTransports的大小和caeate_transport_resp_line_ldx的值相同 表示只有一个transport 防止数据越界访问
+                    if finded_send_transport_idx == caeate_transport_resp_line_ldx:
+                        callback(
+                            "createTransport 服务消息的返回回调已经处理完毕，退出循环 1"
+                            "createTransports={}".format(createTransports)
+                        )
+                        break
+                    createTransport_t = createTransports[
+                        caeate_transport_resp_line_ldx
+                    ]["send_createTransport"]
+                    createTransport_t["end_time"] = end_time
+                    callback(
+                        "createTransport 服务消息的返回回调: start_time = {} end_time = {}  createTransport_t = {} line_idx = {}".format(
+                            createTransport_t["start_time"],
+                            end_time,
+                            createTransport_t,
+                            line_idx,
+                        )
+                    )
+                    duration = self.calculate_duration_(
+                        createTransport_t["start_time"], end_time
+                    )
+                    createTransport_t["duration"] = duration
+                caeate_transport_resp_line_ldx += 1
+
+                if caeate_transport_resp_line_ldx > 1:
+                    callback(
+                        "createTransport 服务消息的返回回调已经出现两次，退出循环 2"
+                        "createTransports={}".format(createTransports)
+                    )
+                    break
+        callback("-----------查找createTransport的服务消息的返回回调 end-------------")
+
+        # 收集每个方向的事件
+        for line in file_all_log_lines:
+            if "Transport connection state changed to" in line:
+                direction_match = re.search(r"direction:\s*(\w+)", line)
+                if direction_match:
+                    direction = direction_match.group(1)
+                    if direction in transports:
+                        state_time_match = re.search(time_pattern, line)
+                        if state_time_match:
+                            state = re.search(
+                                r"Transport connection state changed to\s+(\w+)", line
+                            ).group(1)
+                            state_time = state_time_match.group(1)
+                            if state == "connected":
+                                transports[direction]["connected_time"] = state_time
+                                transports[direction]["connected_state"] = state
+                            else:
+                                transports[direction]["disconnected_time"] = state_time
+                                transports[direction]["disconnected_state"] = state
+
+        # 组织结果
+        for direction, transport in transports.items():
+            connected_time = transport["connected_time"]
+            disconnected_time = transport["disconnected_time"]
+
+            if connected_time:
+                duration = self.calculate_duration_(
+                    transport["start_time"], connected_time
+                )
+                other_info = {
+                    "disconnect_time": disconnected_time,
+                    "failed_time": disconnected_time,
+                }
+                transport_entry = {
+                    "direction": direction,
+                    "start_time": transport["start_time"],
+                    "end_time": connected_time,
+                    "duration": duration,
+                    "state": transport["connected_state"],
+                    "other_info": other_info,
+                }
+                results["createTransport"].append(transport_entry)
+
     # 分析socketio发送数据相关  开始
     def extract_json_from_logs_(self, log_lines):
         extracted_logs = []  # 存储提取出来的日志
@@ -162,6 +389,16 @@ class details_logs:
                 )
 
         return extracted_logs
+        # 计算每个事件的持续时间
+
+    def calculate_duration_(self, start_time, end_time):
+        if start_time is None or end_time is None:
+            return 0
+        start = map(int, start_time.split(":"))
+        end = map(int, end_time.split(":"))
+        start_ms = sum([x * y for x, y in zip(start, [3600000, 60000, 1000, 1])])
+        end_ms = sum([x * y for x, y in zip(end, [3600000, 60000, 1000, 1])])
+        return end_ms - start_ms
 
     def analyze_logs_from_file(self, log_file_path):
         with codecs.open(log_file_path, "r", "utf-8") as log_file:
@@ -340,76 +577,7 @@ class details_logs:
                     )
                     break
 
-        # Step 6: 处理 createTransport
-        transports = {}
-
-        # 处理 createTransport
-        for line in file_all_log_lines:
-            if "createTransport()" in line:
-                direction_match = re.search(r"direction:\((\w+)\)", line)
-                if direction_match:
-                    direction = direction_match.group(1)
-                    start_time_match = re.search(time_pattern, line)
-                    if start_time_match:
-                        start_time = start_time_match.group(1)
-                        transport_entry = {
-                            "direction": direction,
-                            "start_time": start_time,
-                            "connected_time": "",
-                            "connected_state": "",
-                            "disconnected_time": "",
-                            "disconnected_state": "",
-                        }
-                        transports[direction] = transport_entry
-
-        # 收集每个方向的事件
-        for line in file_all_log_lines:
-            if "Transport connection state changed to" in line:
-                direction_match = re.search(r"direction:\s*(\w+)", line)
-                if direction_match:
-                    direction = direction_match.group(1)
-                    if direction in transports:
-                        state_time_match = re.search(time_pattern, line)
-                        if state_time_match:
-                            state = re.search(
-                                r"Transport connection state changed to\s+(\w+)", line
-                            ).group(1)
-                            state_time = state_time_match.group(1)
-                            if state == "connected":
-                                transports[direction]["connected_time"] = state_time
-                                transports[direction]["connected_state"] = state
-                            else:
-                                transports[direction]["disconnected_time"] = state_time
-                                transports[direction]["disconnected_state"] = state
-
-        # 计算每个事件的持续时间
-        def calculate_duration(sestart_time, end_time):
-            start = map(int, start_time.split(":"))
-            end = map(int, end_time.split(":"))
-            start_ms = sum([x * y for x, y in zip(start, [3600000, 60000, 1000, 1])])
-            end_ms = sum([x * y for x, y in zip(end, [3600000, 60000, 1000, 1])])
-            return end_ms - start_ms
-
-        # 组织结果
-        for direction, transport in transports.items():
-            connected_time = transport["connected_time"]
-            disconnected_time = transport["disconnected_time"]
-
-            if connected_time:
-                duration = calculate_duration(transport["start_time"], connected_time)
-                other_info = {
-                    "disconnect_time": disconnected_time,
-                    "failed_time": disconnected_time,
-                }
-                transport_entry = {
-                    "direction": direction,
-                    "start_time": transport["start_time"],
-                    "end_time": connected_time,
-                    "duration": duration,
-                    "state": transport["connected_state"],
-                    "other_info": other_info,
-                }
-                results["createTransport"].append(transport_entry)
+        self.search_create_transport_data_(file_all_log_lines, results, callback)
 
         # 计算持续时间并打印结果
         for section in ["joinRoomInternal", "queryRoom", "join", "verify_msg"]:
@@ -419,7 +587,7 @@ class details_logs:
                 and "end_time" in results[section]
                 and results[section]["end_time"]
             ):
-                duration = calculate_duration(
+                duration = self.calculate_duration_(
                     results[section]["start_time"], results[section]["end_time"]
                 )
                 results[section]["duration"] = duration

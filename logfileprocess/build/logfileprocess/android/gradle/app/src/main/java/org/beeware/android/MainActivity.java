@@ -121,6 +121,8 @@ public class MainActivity extends AppCompatActivity implements ProcessLogFile.On
         logShowMessagesTV = findViewById(R.id.tv_messages);
         scrollView = findViewById(R.id.scrollView);
         logShowMessagesTV.setText("欢迎使用");
+        startDirectory = "/storage/emulated/0/pythonz/";
+        file_path_tv.setText(startDirectory);
         // 初始化 ProcessLogFile，并传递当前 Activity 作为回调监听器
         processLogFile = new ProcessLogFile( this);
         if (Python.isStarted()) {

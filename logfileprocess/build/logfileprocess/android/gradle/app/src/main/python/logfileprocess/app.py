@@ -74,13 +74,22 @@ async def process_log_queue():
 def process_log_queue_(message):
     if isAndroid():
         # 获取 Java 类
-        MainActivity = jclass("org.beeware.android.MainActivity")
-        # 调用静态方法获取 processLogFile 实例
-        processLogFile = MainActivity.getProcessLogFile()
-        my_java_object = MainActivity.getInstance()
+        # MainActivity = jclass("org.beeware.android.MainActivity")
+        # # 调用静态方法获取 processLogFile 实例
+        # processLogFile = MainActivity.getProcessLogFile()
+        # my_java_object = MainActivity.getInstance()
 
-        # 调用 processLogFile 实例的方法
-        processLogFile.onPthonCallback(message)
+        # # 调用 processLogFile 实例的方法
+        # processLogFile.onPthonCallback(message)
+        # # 创建类的实例
+        # # my_java_object = MyJavaClass()
+        # print("------>" + message)
+
+        # # 调用 Java 方法
+        # my_java_object.onPthonCallback(message)
+        MainActivity = jclass("org.beeware.android.ProcessLogFile")
+        # 调用静态方法获取 processLogFile 实例
+        my_java_object = MainActivity.getInstance()
         # 创建类的实例
         # my_java_object = MyJavaClass()
         print("------>" + message)

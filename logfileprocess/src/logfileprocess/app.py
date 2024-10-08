@@ -67,20 +67,29 @@ async def process_log_queue():
             message = log_queue.get()
             if message:
                 process_log_queue_(message)  # 更新日志视图
-        await asyncio.sleep(0.03)  # 每 100ms 检查一次队列
+        await asyncio.sleep(0.03)  # 每 30ms 检查一次队列
 
 
 # 定期从队列中取出日志并更新到 UI 上
 def process_log_queue_(message):
     if isAndroid():
         # 获取 Java 类
-        MainActivity = jclass("org.beeware.android.MainActivity")
-        # 调用静态方法获取 processLogFile 实例
-        processLogFile = MainActivity.getProcessLogFile()
-        my_java_object = MainActivity.getInstance()
+        # MainActivity = jclass("org.beeware.android.MainActivity")
+        # # 调用静态方法获取 processLogFile 实例
+        # processLogFile = MainActivity.getProcessLogFile()
+        # my_java_object = MainActivity.getInstance()
 
-        # 调用 processLogFile 实例的方法
-        processLogFile.onPthonCallback(message)
+        # # 调用 processLogFile 实例的方法
+        # processLogFile.onPthonCallback(message)
+        # # 创建类的实例
+        # # my_java_object = MyJavaClass()
+        # print("------>" + message)
+
+        # # 调用 Java 方法
+        # my_java_object.onPthonCallback(message)
+        MainActivity = jclass("org.beeware.android.ProcessLogFile")
+        # 调用静态方法获取 processLogFile 实例
+        my_java_object = MainActivity.getInstance()
         # 创建类的实例
         # my_java_object = MyJavaClass()
         print("------>" + message)

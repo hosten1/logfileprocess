@@ -270,66 +270,53 @@ class details_logs:
                     break
         callback("-----------查找createTransport的服务消息的返回回调 end-------------")
 
+        # 创建方向和传输信息的字典
+        transports_dict = {
+            transport["direction"]: transport for transport in createTransports
+        }
+
+        def process_state_line(line, transports_dict, direction):
+            state_time_match = re.search(time_pattern, line)
+            if state_time_match:
+                state = re.search(
+                    r"Transport connection state changed to\s+(\w+)", line
+                )
+                if state:
+                    state = state.group(1)
+                    state_time = state_time_match.group(1)
+                    duration = self.calculate_duration_(
+                        transports_dict[direction]["start_time"], state_time
+                    )
+
+                    state_info = {
+                        "state": state,
+                        "time": state_time,
+                        "duration": duration,
+                    }
+
+                    transports_dict[direction]["other_info"].append(state_info)
+
+                    callback(
+                        f"direction:{direction} state:{state} state_time:{state_time}"
+                    )
+
         # 收集每个方向的事件
         for line in file_all_log_lines:
             if "Transport connection state changed to" in line:
                 direction_match = re.search(r"direction:\s*(\w+)", line)
                 if direction_match:
                     direction = direction_match.group(1)
-                    for transports in createTransports:
-                        if transports["direction"] == direction:
-                            callback(
-                                "direction:{} transports:{}".format(
-                                    direction, transports["direction"]
-                                )
-                            )
-                            state_time_match = re.search(time_pattern, line)
-                            if state_time_match:
-                                state = re.search(
-                                    r"Transport connection state changed to\s+(\w+)",
-                                    line,
-                                ).group(1)
-                                state_time = state_time_match.group(1)
-                                duration = self.calculate_duration_(
-                                    transports["start_time"],
-                                    state_time,
-                                )
-                                if state == "connected":
-                                    transports["end_time"] = state_time
-                                    transports["duration"] = duration
-                                    connected_state = {
-                                        "state": state,
-                                        "time": state_time,
-                                        "duration": duration,
-                                    }
-                                    transports["other_info"].append(connected_state)
-                                elif state == "failed":
-                                    failed_state = {
-                                        "state": state,
-                                        "time": state_time,
-                                        "duration": duration,
-                                    }
-                                    transports["other_info"].append(failed_state)
-                                elif state == "disconnected":
-                                    disconnected_state = {
-                                        "state": state,
-                                        "time": state_time,
-                                        "duration": duration,
-                                    }
-                                    transports["other_info"].append(disconnected_state)
-                                else:
-                                    other_state = {
-                                        "state": state,
-                                        "time": state_time,
-                                        "duration": duration,
-                                    }
-                                    transports["other_info"].append(other_state)
+                    if direction in transports_dict:
+                        transports = transports_dict[direction]
+                        callback(
+                            f"direction:{direction} transports:{transports['direction']}"
+                        )
 
-                                # callback(
-                                #     "direction:{} state:{} state_time:{}".format(
-                                #         direction, state, state_time
-                                #     )
-                                # )
+                        try:
+                            process_state_line(line, transports_dict, direction)
+                        except Exception as e:
+                            print(f"Error processing state line: {e}")
+
         callback("-----------收集每个方向的事件 end-------------")
         callback("----------完成 createTransports={}".format(createTransports))
         return createTransports

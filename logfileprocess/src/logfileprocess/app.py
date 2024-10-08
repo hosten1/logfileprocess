@@ -67,7 +67,7 @@ async def process_log_queue():
             message = log_queue.get()
             if message:
                 process_log_queue_(message)  # 更新日志视图
-        await asyncio.sleep(0.03)  # 每 30ms 检查一次队列
+        await asyncio.sleep(0.001)  # 每 10ms 检查一次队列
 
 
 # 定期从队列中取出日志并更新到 UI 上

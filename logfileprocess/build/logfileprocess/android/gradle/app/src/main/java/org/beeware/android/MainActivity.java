@@ -120,7 +120,11 @@ public class MainActivity extends AppCompatActivity implements ProcessLogFile.On
         file_path_tv = findViewById(R.id.file_path_tv);
         logShowMessagesTV = findViewById(R.id.tv_messages);
         scrollView = findViewById(R.id.scrollView);
-        logShowMessagesTV.setText("欢迎使用");
+        String shouMsg = "目前支持WebRTC和enging(只支持分析iOS日志)的日志分析\n" +
+                            "1. 打开 .log 后缀的文件后自动开始分析。\n" +
+                            "2. engine 相关的日志在 logs 目录下。\n" +
+                            "3. 单独打开 logs 下关于 engine 分割后的日志可以分析某一个日志。";
+        logShowMessagesTV.setText(shouMsg);
         startDirectory = "/storage/emulated/0/pythonz/";
         file_path_tv.setText(startDirectory);
         // 初始化 ProcessLogFile，并传递当前 Activity 作为回调监听器

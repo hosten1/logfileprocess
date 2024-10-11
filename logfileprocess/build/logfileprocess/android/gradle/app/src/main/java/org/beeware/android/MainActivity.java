@@ -368,7 +368,7 @@ public class MainActivity extends AppCompatActivity implements ProcessLogFile.On
     public void btn_start_analyze_click(View view) {
         String filePath  = file_path_tv.getText().toString();
         Log.d(TAG, "btn_start_analyze_click: "+filePath);
-        checkAndCreateLogsDirectory(filePath);
+        checkAndCreateLogsDirectory((String) file_path_tv.getText());
 
         // 在子线程中执行 Python 调用
 //        new Thread(new Runnable() {

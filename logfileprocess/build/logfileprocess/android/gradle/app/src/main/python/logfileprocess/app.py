@@ -108,19 +108,19 @@ def process_log_queue_(message):
 
 
 # 定时器，每隔一段时间执行一次
-def start_processing_log_queue():
-    loop = asyncio.get_event_loop()
-    loop.create_task(process_log_queue())  # 启动日志处理任务
-    # app = toga.App.app  # 获取当前的 Toga App 实例
-    # app.add_periodic_task(0.1, process_log_queue_)  # 每隔 100ms 检查日志队列
+# def start_processing_log_queue():
+#     loop = asyncio.get_event_loop()
+#     loop.create_task(process_log_queue())  # 启动日志处理任务
+# app = toga.App.app  # 获取当前的 Toga App 实例
+# app.add_periodic_task(0.1, process_log_queue_)  # 每隔 100ms 检查日志队列
 
 
 def send_msg_toJava(message):
-    if isAndroid():
-        log_queue.put(message)
-    else:
-        # 使用 add_background_task，确保 process_log_queue_ 在主线程中调用
-        toga.App.app.add_background_task(lambda app: process_log_queue_(message))
+    # if isAndroid():
+    #     log_queue.put(message)
+    # else:
+    # 使用 add_background_task，确保 process_log_queue_ 在主线程中调用
+    toga.App.app.add_background_task(lambda app: process_log_queue_(message))
 
     # if isAndroid():
     #     # 调用 Java 的 Android API 示例
@@ -378,14 +378,14 @@ class LogFileProcess(toga.App):
             # 设置主窗口内容
             self.main_window.content = main_box
             self.main_window.show()
-        else:
-            # # 创建一个 Box 用于显示日志
-            # main_box = toga.Box(style=Pack(direction=COLUMN, padding=10))
-            # # 设置主窗口内容
-            # self.main_window.content = main_box
-            # self.main_window.show()
-            # 启动定时处理日志队列的任务
-            start_processing_log_queue()
+        # else:
+        # # 创建一个 Box 用于显示日志
+        # main_box = toga.Box(style=Pack(direction=COLUMN, padding=10))
+        # # 设置主窗口内容
+        # self.main_window.content = main_box
+        # self.main_window.show()
+        # 启动定时处理日志队列的任务
+        # start_processing_log_queue()
 
     async def open_file_dialog(self, widget):
         try:

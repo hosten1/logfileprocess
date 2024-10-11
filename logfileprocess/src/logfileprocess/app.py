@@ -30,6 +30,8 @@ log_box = None  # 用于存放日志的 Box
 log_container = None  # 用于存放 ScrollContainer
 # 创建一个线程安全的队列，用于在后台线程与主线程间传递日志消息
 log_queue = queue.Queue()
+main_window_g = None  # 初始化为 None
+
 
 
 def isAndroid():
@@ -60,14 +62,14 @@ if isAndroid():
     from java import jclass
 
 
-async def process_log_queue():
-    while True:
-        # 如果队列不为空，获取并处理消息
-        if not log_queue.empty():
-            message = log_queue.get()
-            if message:
-                process_log_queue_(message)  # 更新日志视图
-        await asyncio.sleep(0.001)  # 每 10ms 检查一次队列
+# async def process_log_queue(message):
+#     while True:
+#         # 如果队列不为空，获取并处理消息
+#         if not log_queue.empty():
+#             message = log_queue.get()
+#             if message:
+#                 process_log_queue_(message)  # 更新日志视图
+#         await asyncio.sleep(0.001)  # 每 10ms 检查一次队列
 
 
 # 定期从队列中取出日志并更新到 UI 上
@@ -111,8 +113,10 @@ def start_processing_log_queue():
     # app.add_periodic_task(0.1, process_log_queue_)  # 每隔 100ms 检查日志队列
 
 
-def send_msg_toJava(msg):
-    log_queue.put(msg)
+def send_msg_toJava(message):
+    # 使用 add_background_task，确保 process_log_queue_ 在主线程中调用
+    toga.App.app.add_background_task(lambda app: process_log_queue_(message))
+    # log_queue.put(msg)
     # if isAndroid():
     #     # 调用 Java 的 Android API 示例
     #     process_log_queue_(msg)
@@ -121,29 +125,31 @@ def send_msg_toJava(msg):
     #     log_queue.put(msg)
 
 
+# 更新日志视图
 def update_log_view(message):
-    global log_box, log_container
-    # 追加新的日志消息，不清空现有内容
+    global log_box, log_container,main_window_g
+
+    # 创建并添加新的日志消息
     log_label = toga.Label(
-        message, style=Pack(padding=5, font_size=12)  # 调整字体大小和宽度
+        message, style=Pack(padding=5, font_size=12)  # 调整字体大小和样式
     )
-    log_box.add(log_label)  # 添加每条新的日志消息
+    log_box.add(log_label)  # 添加到日志容器中
 
-    # 刷新容器并自动滚动到最底部
-    log_container.content = log_box
-    scroll_to_bottom()  # 自动滚动到底部
+   # 延迟执行滚动操作，确保布局更新后再滚动
+    main_window_g.app.add_background_task(scroll_to_bottom)
 
-
-def scroll_to_bottom():
+# 滚动到容器底部
+def scroll_to_bottom(app=None):
     global log_container, log_box
-    # 获取日志内容的总高度
-    content_height = log_box.layout.height
-    # 获取 ScrollContainer 的可视高度
-    visible_height = log_container.layout.height
 
-    # 如果内容高度大于可视高度，进行滚动
-    if content_height > visible_height:
-        log_container.scroll_y = content_height  # 滚动到底部
+    # 确保 log_box 的布局已经被计算好
+    if log_box.layout and log_container.layout:
+        content_height = log_box.layout.height
+        visible_height = log_container.layout.height
+
+        # 如果内容高度大于可视高度，滚动到底部
+        if content_height > visible_height:
+            log_container.scroll_y = content_height  # 滚动到底部
 
 
 def open_output_folder(folder_path):
@@ -303,18 +309,21 @@ def java_start_analyze_log_file(file_path):
 
 
 def run_async_task(file_path):
-    # 获取当前事件循环
-    loop = asyncio.get_event_loop()
+    # 确保只使用主线程中的事件循环
+    loop = asyncio.get_event_loop()  # 获取当前的事件循环（应该是主线程中的事件循环）
 
     # 启动线程来执行 java_start_analyze_log_file
     with concurrent.futures.ThreadPoolExecutor() as executor:
         loop.run_in_executor(executor, java_start_analyze_log_file, str(file_path))
 
 
+
 class LogFileProcess(toga.App):
     def startup(self):
         global log_box, log_container  # 引用全局变量
+        global main_window_g  # 声明为全局变量
         self.main_window = toga.MainWindow(title=self.formal_name)
+        main_window_g = self.main_window  # 赋值给全局变量w
 
         if not isAndroid():
             # 创建一个标签用于提示信息
@@ -359,21 +368,28 @@ class LogFileProcess(toga.App):
             # 设置主窗口内容
             self.main_window.content = main_box
             self.main_window.show()
-            # 启动定时处理日志队列的任务
-        start_processing_log_queue()
+            # 确保只使用一个事件循环
+        # loop = asyncio.get_event_loop()
+        
+        # # 启动定时处理日志队列的任务
+        # loop.create_task(process_log_queue())
 
     async def open_file_dialog(self, widget):
-        file_path = await self.main_window.dialog(
-            toga.OpenFileDialog(title="Select a file")
-        )
+        try:
+            # 调用 Toga 提供的打开文件对话框的正确方式
+            file_path = await self.main_window.open_file_dialog(
+                title="Select a file"
+            )
 
-        if file_path:
-            send_msg_toJava(f"Selected file: {file_path}")
-            # java_start_analyze_log_file(str(file_path))
-            run_async_task(file_path)
-            send_msg_toJava("Analysis started in background.")
-        else:
-            send_msg_toJava("No file selected.")
+            if file_path:
+                send_msg_toJava(f"Selected file: {file_path}")
+                # java_start_analyze_log_file(str(file_path))
+                run_async_task(file_path)
+                send_msg_toJava("Analysis started in background.")
+            else:
+                send_msg_toJava("No file selected.")
+        except Exception as e:
+            send_msg_toJava(f"Error occurred: {str(e)}")
 
 
 def main():
